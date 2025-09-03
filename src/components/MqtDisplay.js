@@ -580,7 +580,56 @@ const MqtDisplay = () => {
       baseSize = 60; // Original size for short text
     }
 
-    return Math.round(baseSize * scaleFactor * 1.3); // Increased by 30%
+    const baseComputed = Math.round(baseSize * scaleFactor * 1.3);
+
+    // Constrain font size to fit within the circle and background
+    const baseStrokeWidth = circleStyle === 'fat' ? 16 : circleStyle === 'bw' ? 2 : 8;
+    const strokeW = getResponsiveStrokeWidth(baseStrokeWidth);
+    const padding = 10 + (hideClockBackground ? 0 : 4);
+    const innerDiameter = 2 * (radius - strokeW / 2 - padding);
+    const heightMax = innerDiameter * 0.9;
+
+    const charFactor = 0.6; // width per digit relative to font size
+    const colonFactor = 0.3; // width for ':' relative to font size
+    const unitFactor = 0.35; // width for unit letters like 'h'
+
+    const totalForDisplay = countUp ? Math.max(0, time) : Math.max(0, time);
+    const hourDigits = String(Math.floor(totalForDisplay / 3600)).length || 1;
+    const secondsVal = Math.floor(totalForDisplay % 60);
+    const secondsDigits = String(secondsVal).length;
+    const minutesTotal = Math.floor(totalForDisplay / 60);
+    const minuteDigits = String(minutesTotal).length || 1;
+
+    let widthFactor;
+    if (timeFormat === 'mm') {
+      if (isLongDuration) {
+        // HHMM (no 'm') but with 'h'
+        widthFactor = charFactor * (hourDigits + 2) + unitFactor; // hours + 2 minute digits + 'h'
+      } else if ((countUp ? time : Math.max(0, time)) < 60) {
+        // seconds only (SS)
+        widthFactor = charFactor * secondsDigits;
+      } else {
+        // minutes only (MM...)
+        widthFactor = charFactor * minuteDigits;
+      }
+    } else if (timeFormat === 'mm:ss') {
+      if (isLongDuration) {
+        // HH:MM (no 'm') but with 'h' and colon
+        widthFactor = charFactor * (hourDigits + 2) + unitFactor + colonFactor;
+      } else {
+        // MM:SS
+        widthFactor = charFactor * (minuteDigits + 2) + colonFactor;
+      }
+    } else {
+      // Fallback based on text length
+      widthFactor = charFactor * textLength;
+    }
+
+    if (!widthFactor || widthFactor <= 0) widthFactor = charFactor * 2; // safety
+
+    const widthMax = innerDiameter / widthFactor;
+    const finalSize = Math.floor(Math.min(baseComputed, widthMax * 0.98, heightMax));
+    return finalSize;
   };
 
   // Digit clicking functions
@@ -814,7 +863,7 @@ const MqtDisplay = () => {
           const hourStr = String(hours);
           const minuteStr = String(minutesInHour).padStart(2, '0');
 
-          const totalWidth = (hourStr.length * charWidth) + unitWidth + (2 * charWidth) + unitWidth; // H + 'h' + MM + 'm'
+          const totalWidth = (hourStr.length * charWidth) + unitWidth + (2 * charWidth); // H + 'h' + MM
           const startX = 120 - totalWidth / 2;
 
           // Render hour digits
@@ -914,21 +963,7 @@ const MqtDisplay = () => {
             );
           }
 
-          // 'm' unit
-          const mX = minutesStart + (2 * charWidth) + (unitWidth / 2);
-          elements.push(
-            <text
-              key="unit-m"
-              x={mX}
-              y={125}
-              textAnchor="middle"
-              fontFamily={font}
-              fontSize={fontSize}
-              fill={dynamicTextColor}
-            >
-              m
-            </text>
-          );
+
         }
         // Check if we should switch to SS format (last minute)
         else if (totalTime < 60) {
@@ -1088,8 +1123,8 @@ const MqtDisplay = () => {
           const hourStr = String(hours);
           const minuteStr = String(minutesInHour).padStart(2, '0');
 
-          // width: H + 'h' + ':' + MM + 'm'
-          const totalWidth = (hourStr.length * charWidth) + unitWidth + colonWidth + (2 * charWidth) + unitWidth;
+          // width: H + 'h' + ':' + MM
+          const totalWidth = (hourStr.length * charWidth) + unitWidth + colonWidth + (2 * charWidth);
           const startX = 120 - totalWidth / 2;
 
           // Hours
@@ -1205,21 +1240,7 @@ const MqtDisplay = () => {
             );
           }
 
-          // 'm' unit
-          const mX = minutesStart + (2 * charWidth) + (unitWidth / 2);
-          elements.push(
-            <text
-              key="unit-m"
-              x={mX}
-              y={125}
-              textAnchor="middle"
-              fontFamily={font}
-              fontSize={fontSize}
-              fill={dynamicTextColor}
-            >
-              m
-            </text>
-          );
+
         } else {
           const { totalSeconds } = getTimeComponents();
 
