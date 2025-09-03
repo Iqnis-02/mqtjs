@@ -461,8 +461,8 @@ const MqtDisplay = () => {
 
   // Time format
   const formatTime = () => {
-    const safeTime = isNaN(time) ? 0 : time;
-    const total = countUp ? safeTime : Math.max(0, safeTime);
+    const safeTimeLocal = isNaN(time) ? 0 : time;
+    const total = countUp ? safeTimeLocal : Math.max(0, safeTimeLocal);
     const s = total % 60;
 
     // Ensure s is a valid number
@@ -482,6 +482,9 @@ const MqtDisplay = () => {
         return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(safeS).padStart(2, '0')}`;
     }
   };
+
+  // Determine if we should switch to hour-inclusive display (based on total duration setting)
+  const isLongDuration = Math.floor(safeDuration / 60) > 56;
 
   // Dynamic font size based on actual digit count and screen size
   const getDynamicFontSize = () => {
@@ -512,7 +515,7 @@ const MqtDisplay = () => {
       const totalTime = countUp ? time : Math.max(0, time);
 
       // Check if we're in SS mode (last minute)
-      if (totalTime < 60) {
+      if (totalTime < 60 && !isLongDuration) {
         // SS mode: showing seconds (1-2 digits)
         const secondsStr = String(Math.floor(totalTime % 60));
         const actualDigits = secondsStr.length;
@@ -522,6 +525,14 @@ const MqtDisplay = () => {
         } else {
           baseSize = 68; // Two digit seconds
         }
+      } else if (isLongDuration) {
+        // HHMM mode sizing depending on hour digits
+        const hours = Math.floor(safeDuration / 3600);
+        const hourDigits = String(hours).length || 1;
+        if (hourDigits === 1) baseSize = 58; // e.g., 1h00m
+        else if (hourDigits === 2) baseSize = 50;
+        else if (hourDigits === 3) baseSize = 42;
+        else baseSize = 35;
       } else {
         // MM mode: showing minutes (1, 2, 3, 4+ digits)
         const totalMinutes = Math.floor(totalTime / 60);
@@ -538,18 +549,28 @@ const MqtDisplay = () => {
         }
       }
     } else if (timeFormat === 'mm:ss') {
-      // For MM:SS format, consider minute digits + colon + seconds
-      const totalMinutes = Math.floor((countUp ? time : Math.max(0, time)) / 60);
-      const minuteDigits = String(totalMinutes).length;
-
-      if (minuteDigits === 1) {
-        baseSize = 58; // 1:XX format
-      } else if (minuteDigits === 2) {
-        baseSize = 50; // 12:XX format
-      } else if (minuteDigits === 3) {
-        baseSize = 42; // 123:XX format
+      if (isLongDuration) {
+        // HH:MM mode sizing depending on hour digits
+        const hours = Math.floor(safeDuration / 3600);
+        const hourDigits = String(hours).length || 1;
+        if (hourDigits === 1) baseSize = 58; // 1h:00m
+        else if (hourDigits === 2) baseSize = 50;
+        else if (hourDigits === 3) baseSize = 42;
+        else baseSize = 35;
       } else {
-        baseSize = 35; // 1234:XX+ format
+        // For MM:SS format, consider minute digits + colon + seconds
+        const totalMinutes = Math.floor((countUp ? time : Math.max(0, time)) / 60);
+        const minuteDigits = String(totalMinutes).length;
+
+        if (minuteDigits === 1) {
+          baseSize = 58; // 1:XX format
+        } else if (minuteDigits === 2) {
+          baseSize = 50; // 12:XX format
+        } else if (minuteDigits === 3) {
+          baseSize = 42; // 123:XX format
+        } else {
+          baseSize = 35; // 1234:XX+ format
+        }
       }
     } else if (timeFormat === 'hh:mm:ss' || (timeFormat === 'hhmmss' && textLength > 6)) {
       baseSize = 36; // Smaller for longer text
@@ -564,8 +585,8 @@ const MqtDisplay = () => {
 
   // Digit clicking functions
   const getTimeComponents = () => {
-    const safeTime = isNaN(time) ? 0 : time;
-    const total = countUp ? safeTime : Math.max(0, safeTime);
+    const safeTimeLocal = isNaN(time) ? 0 : time;
+    const total = countUp ? safeTimeLocal : Math.max(0, safeTimeLocal);
     const h = Math.floor(total / 3600);
     const m = Math.floor((total % 3600) / 60);
     const s = total % 60;
@@ -582,7 +603,7 @@ const MqtDisplay = () => {
    * CORE DIGIT CLICKING FUNCTION
    * Handles increment/decrement of individual timer digits when clicked
    *
-   * @param {string} digitType - Type of digit ('totalMinutes', 'minutes', 'seconds', 'hours')
+   * @param {string} digitType - Type of digit ('totalMinutes', 'minutes', 'seconds', 'hours', 'minutesWithinHour')
    * @param {number} digitPosition - Position of digit (0 = leftmost/highest place value)
    * @param {boolean} isIncrement - True for increment (top half click), false for decrement (bottom half)
    */
@@ -592,7 +613,7 @@ const MqtDisplay = () => {
 
     switch (digitType) {
       // MM FORMAT: Unlimited minutes (1, 10, 100, 999+)
-      case 'totalMinutes':
+      case 'totalMinutes': {
         const currentTotalMinutes = Math.floor(totalSeconds / 60);
         const totalMinuteStr = String(currentTotalMinutes);
         const numDigits = totalMinuteStr.length;
@@ -613,12 +634,12 @@ const MqtDisplay = () => {
         newTotalMinutes = Math.min(999, Math.max(1, newTotalMinutes));
 
         // Convert back to seconds for timer duration
-        newDuration = newTotalMinutes * 60;
+        newDuration = newTotalMinutes * 60 + (totalSeconds % 60);
         break;
-
+      }
 
       // MM:SS FORMAT: Minutes part behaves like totalMinutes (unlimited)
-      case 'minutes':
+      case 'minutes': {
         const currentMinutesTotal = Math.floor(totalSeconds / 60);
         const minutesStr = String(currentMinutesTotal);
         const numMinuteDigits = minutesStr.length;
@@ -641,9 +662,10 @@ const MqtDisplay = () => {
         const currentSeconds = totalSeconds % 60;
         newDuration = newMinutesTotal * 60 + currentSeconds;
         break;
+      }
 
       // SECONDS FORMAT: Traditional 0-59 seconds with proper minute carry-over
-      case 'seconds':
+      case 'seconds': {
         // Simple place value: position 0 = tens (10), position 1 = ones (1)
         const secondPlaceValue = digitPosition === 0 ? 10 : 1;
 
@@ -684,6 +706,59 @@ const MqtDisplay = () => {
         // Update duration with new minutes and seconds
         newDuration = updatedMinutes * 60 + newSeconds;
         break;
+      }
+
+      // HOURS DIGITS for HHMM / HH:MM
+      case 'hours': {
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutesWithinHour = Math.floor((totalSeconds % 3600) / 60);
+        const hourStr = String(hours);
+        const numDigits = hourStr.length || 1;
+        if (digitPosition >= numDigits) break;
+        const placeValue = Math.pow(10, numDigits - 1 - digitPosition);
+
+        let newHours = isIncrement ? hours + placeValue : hours - placeValue;
+        if (newHours < 0) newHours = 0;
+        let newTotalMinutes = newHours * 60 + minutesWithinHour;
+        if (newTotalMinutes < 1) newTotalMinutes = 1; // minimum 1 minute
+        if (newTotalMinutes > 999) newTotalMinutes = 999; // cap consistent with other formats
+        newDuration = newTotalMinutes * 60 + (totalSeconds % 60);
+        break;
+      }
+
+      // MINUTES within hour for HHMM / HH:MM (two digits 00-59 with carry to hours)
+      case 'minutesWithinHour': {
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutesWithinHour = Math.floor((totalSeconds % 3600) / 60);
+        const placeValue = digitPosition === 0 ? 10 : 1; // tens or ones
+
+        let newMinutes = isIncrement ? minutesWithinHour + placeValue : minutesWithinHour - placeValue;
+        let carryHours = 0;
+
+        if (newMinutes >= 60) {
+          carryHours = Math.floor(newMinutes / 60);
+          newMinutes = newMinutes % 60;
+        } else if (newMinutes < 0) {
+          carryHours = Math.ceil(newMinutes / 60); // negative
+          newMinutes = ((newMinutes % 60) + 60) % 60;
+        }
+
+        let newHours = hours + carryHours;
+        let newTotalMinutes = newHours * 60 + newMinutes;
+        if (newTotalMinutes < 1) {
+          newTotalMinutes = 1;
+          newHours = 0;
+          newMinutes = 1;
+        }
+        if (newTotalMinutes > 999) {
+          newTotalMinutes = 999;
+          newHours = Math.floor(999 / 60);
+          newMinutes = 999 % 60;
+        }
+        newDuration = newTotalMinutes * 60 + (totalSeconds % 60);
+        break;
+      }
+
       default:
         // No action for unknown digit types
         break;
@@ -722,16 +797,140 @@ const MqtDisplay = () => {
     // LAYOUT CALCULATIONS
     // Character width approximation for digit spacing (60% of font size)
     const charWidth = fontSize * 0.6;
-    // Colon width for MM:SS format spacing (30% of font size)
+    // Colon/unit width for spacing (30% of font size for colon, 35% for unit letters)
     const colonWidth = fontSize * 0.3;
+    const unitWidth = fontSize * 0.35;
 
     switch (timeFormat) {
-      // MM FORMAT: Unlimited minutes (1, 10, 100, 999+) with auto-switch to SS for last minute
-      case 'mm':
+      // MM FORMAT: Unlimited minutes (1, 10, 100, 999+) with auto-switch
+      case 'mm': {
         const totalTime = countUp ? time : Math.max(0, time);
 
+        // If duration is configured as "long", switch to HHMM
+        if (isLongDuration) {
+          const hours = Math.floor((countUp ? currentDuration : currentDuration) / 3600);
+          const minutesInHour = Math.floor(((countUp ? currentDuration : currentDuration) % 3600) / 60);
+          const hourStr = String(hours);
+          const minuteStr = String(minutesInHour).padStart(2, '0');
+
+          const totalWidth = (hourStr.length * charWidth) + unitWidth + (2 * charWidth) + unitWidth; // H + 'h' + MM + 'm'
+          const startX = 120 - totalWidth / 2;
+
+          // Render hour digits
+          for (let i = 0; i < hourStr.length; i++) {
+            const digitX = startX + (i * charWidth) + (charWidth / 2);
+            elements.push(
+              <g key={`hours-digit-${i}-group`} onClick={(e) => e.stopPropagation()}>
+                <rect
+                  x={digitX - charWidth / 2}
+                  y={125 - fontSize / 2}
+                  width={charWidth}
+                  height={fontSize / 2}
+                  fill="transparent"
+                  className="timer-digit-clickable"
+                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('hours', i, true) : undefined}
+                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                />
+                <rect
+                  x={digitX - charWidth / 2}
+                  y={125}
+                  width={charWidth}
+                  height={fontSize / 2}
+                  fill="transparent"
+                  className="timer-digit-clickable"
+                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('hours', i, false) : undefined}
+                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                />
+                <text
+                  x={digitX}
+                  y={125}
+                  textAnchor="middle"
+                  fontFamily={font}
+                  fontSize={fontSize}
+                  fill={editingDigit?.startsWith(`hours-${i}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
+                  pointerEvents="none"
+                >
+                  {hourStr[i]}
+                </text>
+              </g>
+            );
+          }
+
+          // 'h' unit
+          const hX = startX + (hourStr.length * charWidth) + (unitWidth / 2);
+          elements.push(
+            <text
+              key="unit-h"
+              x={hX}
+              y={125}
+              textAnchor="middle"
+              fontFamily={font}
+              fontSize={fontSize}
+              fill={dynamicTextColor}
+            >
+              h
+            </text>
+          );
+
+          // Minutes within the hour (two digits)
+          const minutesStart = hX + (unitWidth / 2);
+          for (let i = 0; i < 2; i++) {
+            const digitX = minutesStart + (i * charWidth) + (charWidth / 2);
+            elements.push(
+              <g key={`minwh-digit-${i}-group`} onClick={(e) => e.stopPropagation()}>
+                <rect
+                  x={digitX - charWidth / 2}
+                  y={125 - fontSize / 2}
+                  width={charWidth}
+                  height={fontSize / 2}
+                  fill="transparent"
+                  className="timer-digit-clickable"
+                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('minutesWithinHour', i, true) : undefined}
+                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                />
+                <rect
+                  x={digitX - charWidth / 2}
+                  y={125}
+                  width={charWidth}
+                  height={fontSize / 2}
+                  fill="transparent"
+                  className="timer-digit-clickable"
+                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('minutesWithinHour', i, false) : undefined}
+                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                />
+                <text
+                  x={digitX}
+                  y={125}
+                  textAnchor="middle"
+                  fontFamily={font}
+                  fontSize={fontSize}
+                  fill={editingDigit?.startsWith(`minutesWithinHour-${i}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
+                  pointerEvents="none"
+                >
+                  {minuteStr[i]}
+                </text>
+              </g>
+            );
+          }
+
+          // 'm' unit
+          const mX = minutesStart + (2 * charWidth) + (unitWidth / 2);
+          elements.push(
+            <text
+              key="unit-m"
+              x={mX}
+              y={125}
+              textAnchor="middle"
+              fontFamily={font}
+              fontSize={fontSize}
+              fill={dynamicTextColor}
+            >
+              m
+            </text>
+          );
+        }
         // Check if we should switch to SS format (last minute)
-        if (totalTime < 60) {
+        else if (totalTime < 60) {
           // SS MODE: Show seconds directly (59, 58, 57...)
           const currentSeconds = Math.floor(totalTime % 60);
           const secondsStr = String(currentSeconds);
@@ -876,132 +1075,274 @@ const MqtDisplay = () => {
           }
         }
         break;
+      }
 
       // MM:SS FORMAT: Unlimited minutes + traditional seconds (0-59)
-      case 'mm:ss':
-        const { totalSeconds } = getTimeComponents();
+      case 'mm:ss': {
+        if (isLongDuration) {
+          // Switch to HH:MM when total duration exceeds threshold
+          const hours = Math.floor(currentDuration / 3600);
+          const minutesInHour = Math.floor((currentDuration % 3600) / 60);
+          const hourStr = String(hours);
+          const minuteStr = String(minutesInHour).padStart(2, '0');
 
-        // PARSE TIME COMPONENTS
-        const mmssMinutes = Math.floor(totalSeconds / 60);  // Total minutes (unlimited: 1, 50, 999+)
-        const mmssSeconds = totalSeconds % 60;              // Traditional seconds (0-59)
-        const minutesStr = String(mmssMinutes);             // No leading zeros for minutes
-        const secondsStr = String(mmssSeconds).padStart(2, '0'); // Always 2 digits for seconds
-        const numMinuteDigits = minutesStr.length;
+          // width: H + 'h' + ':' + MM + 'm'
+          const totalWidth = (hourStr.length * charWidth) + unitWidth + colonWidth + (2 * charWidth) + unitWidth;
+          const startX = 120 - totalWidth / 2;
 
-        // DYNAMIC LAYOUT CALCULATION
-        // Total width = minutes + colon + seconds (always 2 digits)
-        const totalWidth = (numMinuteDigits * charWidth) + colonWidth + (2 * charWidth);
-        // Center the entire display around x=120
-        const displayStartX = 120 - (totalWidth / 2);
+          // Hours
+          for (let i = 0; i < hourStr.length; i++) {
+            const digitX = startX + (i * charWidth) + (charWidth / 2);
+            elements.push(
+              <g key={`hours-digit-${i}-group`} onClick={(e) => e.stopPropagation()}>
+                <rect
+                  x={digitX - charWidth / 2}
+                  y={125 - fontSize / 2}
+                  width={charWidth}
+                  height={fontSize / 2}
+                  fill="transparent"
+                  className="timer-digit-clickable"
+                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('hours', i, true) : undefined}
+                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                />
+                <rect
+                  x={digitX - charWidth / 2}
+                  y={125}
+                  width={charWidth}
+                  height={fontSize / 2}
+                  fill="transparent"
+                  className="timer-digit-clickable"
+                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('hours', i, false) : undefined}
+                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                />
+                <text
+                  x={digitX}
+                  y={125}
+                  textAnchor="middle"
+                  fontFamily={font}
+                  fontSize={fontSize}
+                  fill={editingDigit?.startsWith(`hours-${i}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
+                  pointerEvents="none"
+                >
+                  {hourStr[i]}
+                </text>
+              </g>
+            );
+          }
 
-        // RENDER MINUTE DIGITS (unlimited, like MM format)
-        for (let i = 0; i < numMinuteDigits; i++) {
-          const digitX = displayStartX + (i * charWidth) + (charWidth / 2);
+          // 'h' unit
+          const hX = startX + (hourStr.length * charWidth) + (unitWidth / 2);
           elements.push(
-            <g key={`min-digit-${i}-group`} onClick={(e) => e.stopPropagation()}>
-              {/* Top half - increment minute digit */}
+            <text
+              key="unit-h"
+              x={hX}
+              y={125}
+              textAnchor="middle"
+              fontFamily={font}
+              fontSize={fontSize}
+              fill={dynamicTextColor}
+            >
+              h
+            </text>
+          );
+
+          // Colon
+          const colonX = hX + (unitWidth / 2) + (colonWidth / 2);
+          elements.push(
+            <text
+              key="colon-hhmm"
+              x={colonX}
+              y={125}
+              textAnchor="middle"
+              fontFamily={font}
+              fontSize={fontSize}
+              fill={dynamicTextColor}
+            >
+              :
+            </text>
+          );
+
+          // Minutes within the hour (two digits)
+          const minutesStart = colonX + (colonWidth / 2);
+          for (let i = 0; i < 2; i++) {
+            const digitX = minutesStart + (i * charWidth) + (charWidth / 2);
+            elements.push(
+              <g key={`minwh-digit-${i}-group`} onClick={(e) => e.stopPropagation()}>
+                <rect
+                  x={digitX - charWidth / 2}
+                  y={125 - fontSize / 2}
+                  width={charWidth}
+                  height={fontSize / 2}
+                  fill="transparent"
+                  className="timer-digit-clickable"
+                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('minutesWithinHour', i, true) : undefined}
+                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                />
+                <rect
+                  x={digitX - charWidth / 2}
+                  y={125}
+                  width={charWidth}
+                  height={fontSize / 2}
+                  fill="transparent"
+                  className="timer-digit-clickable"
+                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('minutesWithinHour', i, false) : undefined}
+                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                />
+                <text
+                  x={digitX}
+                  y={125}
+                  textAnchor="middle"
+                  fontFamily={font}
+                  fontSize={fontSize}
+                  fill={editingDigit?.startsWith(`minutesWithinHour-${i}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
+                  pointerEvents="none"
+                >
+                  {minuteStr[i]}
+                </text>
+              </g>
+            );
+          }
+
+          // 'm' unit
+          const mX = minutesStart + (2 * charWidth) + (unitWidth / 2);
+          elements.push(
+            <text
+              key="unit-m"
+              x={mX}
+              y={125}
+              textAnchor="middle"
+              fontFamily={font}
+              fontSize={fontSize}
+              fill={dynamicTextColor}
+            >
+              m
+            </text>
+          );
+        } else {
+          const { totalSeconds } = getTimeComponents();
+
+          // PARSE TIME COMPONENTS
+          const mmssMinutes = Math.floor(totalSeconds / 60);  // Total minutes (unlimited: 1, 50, 999+)
+          const mmssSeconds = totalSeconds % 60;              // Traditional seconds (0-59)
+          const minutesStr = String(mmssMinutes);             // No leading zeros for minutes
+          const secondsStr = String(mmssSeconds).padStart(2, '0'); // Always 2 digits for seconds
+          const numMinuteDigits = minutesStr.length;
+
+          // DYNAMIC LAYOUT CALCULATION
+          // Total width = minutes + colon + seconds (always 2 digits)
+          const totalWidth = (numMinuteDigits * charWidth) + colonWidth + (2 * charWidth);
+          // Center the entire display around x=120
+          const displayStartX = 120 - (totalWidth / 2);
+
+          // RENDER MINUTE DIGITS (unlimited, like MM format)
+          for (let i = 0; i < numMinuteDigits; i++) {
+            const digitX = displayStartX + (i * charWidth) + (charWidth / 2);
+            elements.push(
+              <g key={`min-digit-${i}-group`} onClick={(e) => e.stopPropagation()}>
+                {/* Top half - increment minute digit */}
+                <rect
+                  x={digitX - charWidth / 2}
+                  y={125 - fontSize / 2}
+                  width={charWidth}
+                  height={fontSize / 2}
+                  fill="transparent"
+                  className="timer-digit-clickable"
+                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('minutes', i, true) : undefined}
+                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                />
+                {/* Bottom half - decrement minute digit */}
+                <rect
+                  x={digitX - charWidth / 2}
+                  y={125}
+                  width={charWidth}
+                  height={fontSize / 2}
+                  fill="transparent"
+                  className="timer-digit-clickable"
+                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('minutes', i, false) : undefined}
+                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                />
+                {/* Minute digit text */}
+                <text
+                  x={digitX}
+                  y={125}
+                  textAnchor="middle"
+                  fontFamily={font}
+                  fontSize={fontSize}
+                  fill={editingDigit?.startsWith(`minutes-${i}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
+                  pointerEvents="none"
+                >
+                  {minutesStr[i]}
+                </text>
+              </g>
+            );
+          }
+
+          // RENDER COLON SEPARATOR
+          const colonX = displayStartX + (numMinuteDigits * charWidth) + (colonWidth / 2);
+          elements.push(
+            <text
+              key="colon1"
+              x={colonX}
+              y={125}
+              textAnchor="middle"
+              fontFamily={font}
+              fontSize={fontSize}
+              fill={dynamicTextColor}
+            >
+              :
+            </text>
+          );
+
+          // RENDER SECONDS DIGITS (always 2 digits, 0-59 range)
+          const secondsStartX = displayStartX + (numMinuteDigits * charWidth) + colonWidth;
+
+          // Helper function to create seconds digit with consistent pattern
+          const createSecondsDigit = (position, digit, digitIndex) => (
+            <g key={`sec-${position}-group`} onClick={(e) => e.stopPropagation()}>
+              {/* Top half - increment */}
               <rect
-                x={digitX - charWidth / 2}
+                x={secondsStartX + (digitIndex * charWidth)}
                 y={125 - fontSize / 2}
                 width={charWidth}
                 height={fontSize / 2}
                 fill="transparent"
                 className="timer-digit-clickable"
-                onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('minutes', i, true) : undefined}
+                onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('seconds', digitIndex, true) : undefined}
                 pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
               />
-              {/* Bottom half - decrement minute digit */}
+              {/* Bottom half - decrement */}
               <rect
-                x={digitX - charWidth / 2}
+                x={secondsStartX + (digitIndex * charWidth)}
                 y={125}
                 width={charWidth}
                 height={fontSize / 2}
                 fill="transparent"
                 className="timer-digit-clickable"
-                onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('minutes', i, false) : undefined}
+                onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('seconds', digitIndex, false) : undefined}
                 pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
               />
-              {/* Minute digit text */}
+              {/* Digit text */}
               <text
-                x={digitX}
+                x={secondsStartX + (digitIndex * charWidth) + (charWidth / 2)}
                 y={125}
                 textAnchor="middle"
                 fontFamily={font}
                 fontSize={fontSize}
-                fill={editingDigit?.startsWith(`minutes-${i}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
+                fill={editingDigit?.startsWith(`seconds-${digitIndex}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
                 pointerEvents="none"
               >
-                {minutesStr[i]}
+                {digit}
               </text>
             </g>
           );
+
+          // Seconds tens digit (position 0)
+          elements.push(createSecondsDigit('tens', secondsStr[0], 0));
+          // Seconds ones digit (position 1)
+          elements.push(createSecondsDigit('ones', secondsStr[1], 1));
         }
-
-        // RENDER COLON SEPARATOR
-        const colonX = displayStartX + (numMinuteDigits * charWidth) + (colonWidth / 2);
-        elements.push(
-          <text
-            key="colon1"
-            x={colonX}
-            y={125}
-            textAnchor="middle"
-            fontFamily={font}
-            fontSize={fontSize}
-            fill={dynamicTextColor}
-          >
-            :
-          </text>
-        );
-
-        // RENDER SECONDS DIGITS (always 2 digits, 0-59 range)
-        const secondsStartX = displayStartX + (numMinuteDigits * charWidth) + colonWidth;
-
-        // Helper function to create seconds digit with consistent pattern
-        const createSecondsDigit = (position, digit, digitIndex) => (
-          <g key={`sec-${position}-group`} onClick={(e) => e.stopPropagation()}>
-            {/* Top half - increment */}
-            <rect
-              x={secondsStartX + (digitIndex * charWidth)}
-              y={125 - fontSize / 2}
-              width={charWidth}
-              height={fontSize / 2}
-              fill="transparent"
-              className="timer-digit-clickable"
-              onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('seconds', digitIndex, true) : undefined}
-              pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
-            />
-            {/* Bottom half - decrement */}
-            <rect
-              x={secondsStartX + (digitIndex * charWidth)}
-              y={125}
-              width={charWidth}
-              height={fontSize / 2}
-              fill="transparent"
-              className="timer-digit-clickable"
-              onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('seconds', digitIndex, false) : undefined}
-              pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
-            />
-            {/* Digit text */}
-            <text
-              x={secondsStartX + (digitIndex * charWidth) + (charWidth / 2)}
-              y={125}
-              textAnchor="middle"
-              fontFamily={font}
-              fontSize={fontSize}
-              fill={editingDigit?.startsWith(`seconds-${digitIndex}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
-              pointerEvents="none"
-            >
-              {digit}
-            </text>
-          </g>
-        );
-
-        // Seconds tens digit (position 0)
-        elements.push(createSecondsDigit('tens', secondsStr[0], 0));
-        // Seconds ones digit (position 1)
-        elements.push(createSecondsDigit('ones', secondsStr[1], 1));
         break;
-
+      }
 
       default:
         // Fallback to formatTime() for unsupported formats
