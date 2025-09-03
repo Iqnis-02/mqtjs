@@ -769,7 +769,7 @@ const MqtDisplay = () => {
         let newHours = isIncrement ? hours + placeValue : hours - placeValue;
         if (newHours < 0) newHours = 0;
         let newTotalMinutes = newHours * 60 + minutesWithinHour;
-        if (newTotalMinutes < 1) newTotalMinutes = 1; // minimum 1 minute
+        if (newTotalMinutes < 0) newTotalMinutes = 0; // allow zero so it can switch below 60 correctly
         if (newTotalMinutes > 999) newTotalMinutes = 999; // cap consistent with other formats
         newDuration = newTotalMinutes * 60 + (totalSeconds % 60);
         break;
@@ -782,28 +782,24 @@ const MqtDisplay = () => {
         const placeValue = digitPosition === 0 ? 10 : 1; // tens or ones
 
         let newMinutes = isIncrement ? minutesWithinHour + placeValue : minutesWithinHour - placeValue;
-        let carryHours = 0;
+        let newHours = hours;
 
         if (newMinutes >= 60) {
-          carryHours = Math.floor(newMinutes / 60);
+          const carryHours = Math.floor(newMinutes / 60);
           newMinutes = newMinutes % 60;
+          newHours = Math.max(0, newHours + carryHours);
         } else if (newMinutes < 0) {
-          carryHours = Math.ceil(newMinutes / 60); // negative
-          newMinutes = ((newMinutes % 60) + 60) % 60;
+          const borrowHours = -Math.ceil((-newMinutes) / 60); // e.g., -1..-59 => -1
+          newHours = Math.max(0, newHours + borrowHours);
+          newMinutes = newMinutes - borrowHours * 60; // bring back into 0..59 range
+          if (newHours === 0 && newMinutes < 0) {
+            newMinutes = 0; // cannot go below 0 total
+          }
         }
 
-        let newHours = hours + carryHours;
         let newTotalMinutes = newHours * 60 + newMinutes;
-        if (newTotalMinutes < 1) {
-          newTotalMinutes = 1;
-          newHours = 0;
-          newMinutes = 1;
-        }
-        if (newTotalMinutes > 999) {
-          newTotalMinutes = 999;
-          newHours = Math.floor(999 / 60);
-          newMinutes = 999 % 60;
-        }
+        if (newTotalMinutes < 0) newTotalMinutes = 0; // allow zero
+        if (newTotalMinutes > 999) newTotalMinutes = 999;
         newDuration = newTotalMinutes * 60 + (totalSeconds % 60);
         break;
       }
