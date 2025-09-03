@@ -808,8 +808,9 @@ const MqtDisplay = () => {
 
         // If duration is configured as "long", switch to HHMM
         if (isLongDuration) {
-          const hours = Math.floor((countUp ? currentDuration : currentDuration) / 3600);
-          const minutesInHour = Math.floor(((countUp ? currentDuration : currentDuration) % 3600) / 60);
+          const totalForDisplay = countUp ? Math.max(0, time) : Math.max(0, time);
+          const hours = Math.floor(totalForDisplay / 3600);
+          const minutesInHour = Math.floor((totalForDisplay % 3600) / 60);
           const hourStr = String(hours);
           const minuteStr = String(minutesInHour).padStart(2, '0');
 
