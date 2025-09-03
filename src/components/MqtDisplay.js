@@ -1082,8 +1082,9 @@ const MqtDisplay = () => {
       case 'mm:ss': {
         if (isLongDuration) {
           // Switch to HH:MM when total duration exceeds threshold
-          const hours = Math.floor(currentDuration / 3600);
-          const minutesInHour = Math.floor((currentDuration % 3600) / 60);
+          const totalForDisplay = countUp ? Math.max(0, time) : Math.max(0, time);
+          const hours = Math.floor(totalForDisplay / 3600);
+          const minutesInHour = Math.floor((totalForDisplay % 3600) / 60);
           const hourStr = String(hours);
           const minuteStr = String(minutesInHour).padStart(2, '0');
 
