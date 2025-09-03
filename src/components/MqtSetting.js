@@ -314,7 +314,7 @@ const MqtSetting = () => {
           onClick={handleStart}
           sx={{ mr: 2 }} // Adds margin-right for spacing
         >
-          Start
+          Preview
         </Button>
 
         <Button
