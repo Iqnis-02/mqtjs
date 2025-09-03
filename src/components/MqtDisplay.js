@@ -483,8 +483,9 @@ const MqtDisplay = () => {
     }
   };
 
-  // Determine if we should switch to hour-inclusive display (based on total duration setting)
-  const isLongDuration = Math.floor(safeDuration / 60) > 56;
+  // Determine if we should switch to hour-inclusive display based on current time value
+  const currentTotalSeconds = Math.max(0, safeTime);
+  const isLongDuration = Math.floor(currentTotalSeconds / 60) >= 60;
 
   // Dynamic font size based on actual digit count and screen size
   const getDynamicFontSize = () => {
