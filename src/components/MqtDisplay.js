@@ -607,7 +607,7 @@ const MqtDisplay = () => {
     let widthFactor;
     const daysTotal = Math.floor(totalForDisplay / 86400);
     const dayDigits = String(daysTotal).length || 1;
-    const dayLabelScale = 0.1; // render 'Day' at 10% of main font size
+    const dayLabelScale = 0.3; // render 'Day' at 30% of main font size
     const dayLabelWidth = unitFactor * 3 * dayLabelScale; // approximate width for 'Day' at scaled size
     if (timeFormat === 'mm') {
       if (isVeryLongDuration) {
@@ -932,7 +932,7 @@ const MqtDisplay = () => {
           const hourStr = String(hoursInDay).padStart(2, '0');
 
           const dayLabel = 'Day';
-          const dayLabelScale = 0.1;
+          const dayLabelScale = 0.3;
           const dayLabelWidth = unitWidth * dayLabel.length * dayLabelScale;
           const totalWidth = (dayStr.length * charWidth) + dayLabelWidth + (2 * charWidth) + unitWidth; // D + 'Day' + HH + 'h'
           const startX = 120 - totalWidth / 2;
@@ -1043,7 +1043,7 @@ const MqtDisplay = () => {
               y={125}
               textAnchor="middle"
               fontFamily={font}
-              fontSize={fontSize}
+              fontSize={fontSize * 0.3}
               fill={dynamicTextColor}
             >
               h
@@ -1109,7 +1109,7 @@ const MqtDisplay = () => {
               y={125}
               textAnchor="middle"
               fontFamily={font}
-              fontSize={fontSize}
+              fontSize={fontSize * 0.3}
               fill={dynamicTextColor}
             >
               h
@@ -1317,7 +1317,7 @@ const MqtDisplay = () => {
           const hourStr = String(hoursInDay).padStart(2, '0');
 
           const dayLabel = 'Day';
-          const dayLabelScale = 0.1;
+          const dayLabelScale = 0.3;
           const dayLabelWidth = unitWidth * dayLabel.length * dayLabelScale;
           const totalWidth = (dayStr.length * charWidth) + dayLabelWidth + (2 * charWidth) + unitWidth;
           const startX = 120 - totalWidth / 2;
@@ -1428,7 +1428,7 @@ const MqtDisplay = () => {
               y={125}
               textAnchor="middle"
               fontFamily={font}
-              fontSize={fontSize}
+              fontSize={fontSize * 0.3}
               fill={dynamicTextColor}
             >
               h
@@ -1496,7 +1496,7 @@ const MqtDisplay = () => {
               y={125}
               textAnchor="middle"
               fontFamily={font}
-              fontSize={fontSize}
+              fontSize={fontSize * 0.3}
               fill={dynamicTextColor}
             >
               h
