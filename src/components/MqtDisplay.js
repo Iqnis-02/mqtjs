@@ -827,17 +827,28 @@ const MqtDisplay = () => {
         const days = Math.floor(totalSeconds / 86400);
         const hoursWithinDay = Math.floor((totalSeconds % 86400) / 3600);
         const minutesWithinHour = Math.floor((totalSeconds % 3600) / 60);
+        const secondsWithinMinute = totalSeconds % 60;
         const dayStr = String(days);
         const numDigits = dayStr.length || 1;
         if (digitPosition >= numDigits) break;
         const placeValue = Math.pow(10, numDigits - 1 - digitPosition);
+
+        // Special-case borrow: when decreasing at 1 Day and hour is 00, fallback to 23h preserving minutes/seconds
+        if (!isIncrement && placeValue === 1 && days >= 1 && hoursWithinDay === 0) {
+          const newDaysBorrow = Math.max(0, days - 1);
+          let borrowTotalMinutes = newDaysBorrow * 24 * 60 + 23 * 60 + minutesWithinHour;
+          if (borrowTotalMinutes < 0) borrowTotalMinutes = 0;
+          if (borrowTotalMinutes > MAX_MINUTES) borrowTotalMinutes = MAX_MINUTES;
+          newDuration = borrowTotalMinutes * 60 + secondsWithinMinute;
+          break;
+        }
 
         let newDays = isIncrement ? days + placeValue : days - placeValue;
         if (newDays < 0) newDays = 0;
         let newTotalMinutes = newDays * 24 * 60 + hoursWithinDay * 60 + minutesWithinHour;
         if (newTotalMinutes < 0) newTotalMinutes = 0;
         if (newTotalMinutes > MAX_MINUTES) newTotalMinutes = MAX_MINUTES;
-        newDuration = newTotalMinutes * 60 + (totalSeconds % 60);
+        newDuration = newTotalMinutes * 60 + secondsWithinMinute;
         break;
       }
 
