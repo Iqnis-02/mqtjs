@@ -777,26 +777,19 @@ const MqtDisplay = () => {
       case 'hours': {
         const hours = Math.floor(totalSeconds / 3600);
         const minutesWithinHour = Math.floor((totalSeconds % 3600) / 60);
+        const secondsWithinMinute = totalSeconds % 60;
         const hourStr = String(hours);
         const numDigits = hourStr.length || 1;
         if (digitPosition >= numDigits) break;
         const placeValue = Math.pow(10, numDigits - 1 - digitPosition);
 
-        // Snap to HH:00 when decreasing any hour digit while minutes > 0
-        if (!isIncrement && minutesWithinHour > 0) {
-          let newTotalMinutes = hours * 60; // drop minutes within the hour to 00
-          if (newTotalMinutes < 0) newTotalMinutes = 0;
-          if (newTotalMinutes > MAX_MINUTES) newTotalMinutes = MAX_MINUTES;
-          newDuration = newTotalMinutes * 60 + (totalSeconds % 60);
-          break;
-        }
-
         let newHours = isIncrement ? hours + placeValue : hours - placeValue;
         if (newHours < 0) newHours = 0;
+
         let newTotalMinutes = newHours * 60 + minutesWithinHour;
-        if (newTotalMinutes < 0) newTotalMinutes = 0; // allow zero so it can switch below 60 correctly
-        if (newTotalMinutes > MAX_MINUTES) newTotalMinutes = MAX_MINUTES; // cap consistent with other formats
-        newDuration = newTotalMinutes * 60 + (totalSeconds % 60);
+        if (newTotalMinutes < 0) newTotalMinutes = 0;
+        if (newTotalMinutes > MAX_MINUTES) newTotalMinutes = MAX_MINUTES;
+        newDuration = newTotalMinutes * 60 + secondsWithinMinute;
         break;
       }
 
