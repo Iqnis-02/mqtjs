@@ -610,10 +610,11 @@ const MqtDisplay = () => {
     const dayLabelScale = 0.3; // render 'Day' at 30% of main font size
     const dayLabelWidth = unitFactor * 3 * dayLabelScale; // approximate width for 'Day' at scaled size
     const gapFactor = charFactor * 0.2; // small spacing between day digits and 'Day'
+    const afterGapFactor = charFactor * 0.3; // spacing between 'Day' and hours
     if (timeFormat === 'mm') {
       if (isVeryLongDuration) {
         // DDayHH + 'h'
-        widthFactor = charFactor * dayDigits + gapFactor + dayLabelWidth + (2 * charFactor) + unitFactor;
+        widthFactor = charFactor * dayDigits + gapFactor + dayLabelWidth + afterGapFactor + (2 * charFactor) + unitFactor;
       } else if (isLongDuration) {
         // HHMM (no 'm') but with 'h'
         widthFactor = charFactor * (hourDigits + 2) + unitFactor; // hours + 2 minute digits + 'h'
@@ -627,7 +628,7 @@ const MqtDisplay = () => {
     } else if (timeFormat === 'mm:ss') {
       if (isVeryLongDuration) {
         // DDayHH + 'h'
-        widthFactor = charFactor * dayDigits + gapFactor + dayLabelWidth + (2 * charFactor) + unitFactor;
+        widthFactor = charFactor * dayDigits + gapFactor + dayLabelWidth + afterGapFactor + (2 * charFactor) + unitFactor;
       } else if (isLongDuration) {
         // HH:MM (no 'm') but with 'h' and colon
         widthFactor = charFactor * (hourDigits + 2) + unitFactor + colonFactor;
@@ -936,7 +937,8 @@ const MqtDisplay = () => {
           const dayLabelScale = 0.3;
           const dayLabelWidth = unitWidth * dayLabel.length * dayLabelScale;
           const gapWidth = charWidth * 0.2; // small gap between day digits and 'Day'
-          const totalWidth = (dayStr.length * charWidth) + gapWidth + dayLabelWidth + (2 * charWidth) + unitWidth; // D + gap + 'Day' + HH + 'h'
+          const afterDayGap = charWidth * 0.3; // gap between 'Day' and hours
+          const totalWidth = (dayStr.length * charWidth) + gapWidth + dayLabelWidth + afterDayGap + (2 * charWidth) + unitWidth; // D + gap + 'Day' + gap + HH + 'h'
           const startX = 120 - totalWidth / 2;
 
           // Render day digits
@@ -996,7 +998,7 @@ const MqtDisplay = () => {
           );
 
           // Hours within the day (two digits)
-          const hoursStart = dayX + (dayLabelWidth / 2);
+          const hoursStart = dayX + (dayLabelWidth / 2) + afterDayGap;
           for (let i = 0; i < 2; i++) {
             const digitX = hoursStart + (i * charWidth) + (charWidth / 2);
             elements.push(
@@ -1322,7 +1324,8 @@ const MqtDisplay = () => {
           const dayLabelScale = 0.3;
           const dayLabelWidth = unitWidth * dayLabel.length * dayLabelScale;
           const gapWidth = charWidth * 0.2; // small gap between day digits and 'Day'
-          const totalWidth = (dayStr.length * charWidth) + gapWidth + dayLabelWidth + (2 * charWidth) + unitWidth;
+          const afterDayGap = charWidth * 0.3; // gap between 'Day' and hours
+          const totalWidth = (dayStr.length * charWidth) + gapWidth + dayLabelWidth + afterDayGap + (2 * charWidth) + unitWidth;
           const startX = 120 - totalWidth / 2;
 
           // Days
@@ -1382,7 +1385,7 @@ const MqtDisplay = () => {
           );
 
           // Hours within day (two digits)
-          const hoursStart = dayX + (dayLabelWidth / 2);
+          const hoursStart = dayX + (dayLabelWidth / 2) + afterDayGap;
           for (let i = 0; i < 2; i++) {
             const digitX = hoursStart + (i * charWidth) + (charWidth / 2);
             elements.push(
