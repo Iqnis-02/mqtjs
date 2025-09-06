@@ -94,6 +94,7 @@ const MqtDisplay = () => {
     }
   };
 
+  const MAX_MINUTES = 43200; // 30 days
   const radius = 110; // Enlarged radius to provide more space for expanding timer text
   const circumference = 2 * Math.PI * radius;
 
@@ -681,8 +682,8 @@ const MqtDisplay = () => {
           currentTotalMinutes + placeValue :
           currentTotalMinutes - placeValue;
 
-        // Limit to 999 minutes max, minimum 1 minute
-        newTotalMinutes = Math.min(999, Math.max(1, newTotalMinutes));
+        // Limit to MAX_MINUTES minutes max, minimum 1 minute
+        newTotalMinutes = Math.min(MAX_MINUTES, Math.max(1, newTotalMinutes));
 
         // Convert back to seconds for timer duration
         newDuration = newTotalMinutes * 60 + (totalSeconds % 60);
@@ -706,8 +707,8 @@ const MqtDisplay = () => {
           currentMinutesTotal + minutePlaceValue :
           currentMinutesTotal - minutePlaceValue;
 
-        // Limit to 999 minutes max, minimum 1 minute for MM:SS format
-        newMinutesTotal = Math.min(999, Math.max(1, newMinutesTotal));
+        // Limit to MAX_MINUTES minutes max, minimum 1 minute for MM:SS format
+        newMinutesTotal = Math.min(MAX_MINUTES, Math.max(1, newMinutesTotal));
 
         // Preserve current seconds and update total duration
         const currentSeconds = totalSeconds % 60;
@@ -748,10 +749,10 @@ const MqtDisplay = () => {
           updatedMinutes = 1;
           newSeconds = 0;
         }
-        // Ensure maximum 999 minute total
-        else if (updatedMinutes > 999) {
-          updatedMinutes = 999;
-          newSeconds = 59; // Cap at 999:59
+        // Ensure maximum MAX_MINUTES minute total
+        else if (updatedMinutes > MAX_MINUTES) {
+          updatedMinutes = MAX_MINUTES;
+          newSeconds = 59; // Cap at MAX_MINUTES:59
         }
 
         // Update duration with new minutes and seconds
@@ -772,7 +773,7 @@ const MqtDisplay = () => {
         if (!isIncrement && minutesWithinHour > 0) {
           let newTotalMinutes = hours * 60; // drop minutes within the hour to 00
           if (newTotalMinutes < 0) newTotalMinutes = 0;
-          if (newTotalMinutes > 999) newTotalMinutes = 999;
+          if (newTotalMinutes > MAX_MINUTES) newTotalMinutes = MAX_MINUTES;
           newDuration = newTotalMinutes * 60 + (totalSeconds % 60);
           break;
         }
@@ -781,7 +782,7 @@ const MqtDisplay = () => {
         if (newHours < 0) newHours = 0;
         let newTotalMinutes = newHours * 60 + minutesWithinHour;
         if (newTotalMinutes < 0) newTotalMinutes = 0; // allow zero so it can switch below 60 correctly
-        if (newTotalMinutes > 999) newTotalMinutes = 999; // cap consistent with other formats
+        if (newTotalMinutes > MAX_MINUTES) newTotalMinutes = MAX_MINUTES; // cap consistent with other formats
         newDuration = newTotalMinutes * 60 + (totalSeconds % 60);
         break;
       }
@@ -810,7 +811,7 @@ const MqtDisplay = () => {
 
         let newTotalMinutes = newHours * 60 + newMinutes;
         if (newTotalMinutes < 0) newTotalMinutes = 0; // allow zero
-        if (newTotalMinutes > 999) newTotalMinutes = 999;
+        if (newTotalMinutes > MAX_MINUTES) newTotalMinutes = MAX_MINUTES;
         newDuration = newTotalMinutes * 60 + (totalSeconds % 60);
         break;
       }
