@@ -690,12 +690,22 @@ const MqtDisplay = () => {
         // Position 0 = leftmost digit (highest value), Position 1 = next digit, etc.
         const placeValue = Math.pow(10, numDigits - 1 - digitPosition);
 
-        // Add or subtract the place value (proper carry-over: 9 → 10, not 9 → 0)
-        let newTotalMinutes = isIncrement ?
-          currentTotalMinutes + placeValue :
-          currentTotalMinutes - placeValue;
+        // Add or subtract the place value with borrow-aware decrement
+        let newTotalMinutes;
+        if (isIncrement) {
+          newTotalMinutes = currentTotalMinutes + placeValue;
+        } else {
+          const candidate = currentTotalMinutes - placeValue;
+          if (candidate <= 0) {
+            // If decrement crosses digit boundary (e.g., 100 -> 0), fallback to max of lower digit range (e.g., 99)
+            const fallback = numDigits > 1 ? Math.pow(10, numDigits - 1) - 1 : 1;
+            newTotalMinutes = fallback;
+          } else {
+            newTotalMinutes = candidate;
+          }
+        }
 
-        // Limit to MAX_MINUTES minutes max, minimum 1 minute
+        // Clamp to bounds
         newTotalMinutes = Math.min(MAX_MINUTES, Math.max(1, newTotalMinutes));
 
         // Convert back to seconds for timer duration
@@ -715,12 +725,21 @@ const MqtDisplay = () => {
         // Calculate place value for proper carry-over (same logic as totalMinutes)
         const minutePlaceValue = Math.pow(10, numMinuteDigits - 1 - digitPosition);
 
-        // Add or subtract place value (9:59 → 10:59 when clicking top of "9")
-        let newMinutesTotal = isIncrement ?
-          currentMinutesTotal + minutePlaceValue :
-          currentMinutesTotal - minutePlaceValue;
+        // Add or subtract place value with borrow-aware decrement
+        let newMinutesTotal;
+        if (isIncrement) {
+          newMinutesTotal = currentMinutesTotal + minutePlaceValue;
+        } else {
+          const candidate = currentMinutesTotal - minutePlaceValue;
+          if (candidate <= 0) {
+            const fallback = numMinuteDigits > 1 ? Math.pow(10, numMinuteDigits - 1) - 1 : 1;
+            newMinutesTotal = fallback;
+          } else {
+            newMinutesTotal = candidate;
+          }
+        }
 
-        // Limit to MAX_MINUTES minutes max, minimum 1 minute for MM:SS format
+        // Clamp within bounds for MM:SS
         newMinutesTotal = Math.min(MAX_MINUTES, Math.max(1, newMinutesTotal));
 
         // Preserve current seconds and update total duration
