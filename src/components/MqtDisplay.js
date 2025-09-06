@@ -607,7 +607,7 @@ const MqtDisplay = () => {
     let widthFactor;
     const daysTotal = Math.floor(totalForDisplay / 86400);
     const dayDigits = String(daysTotal).length || 1;
-    const dayLabelWidth = unitWidth * 3; // 'Day'
+    const dayLabelWidth = unitFactor * 3; // 'Day'
     if (timeFormat === 'mm') {
       if (isVeryLongDuration) {
         // DDayHH + 'h'
