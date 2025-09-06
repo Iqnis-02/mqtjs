@@ -487,6 +487,7 @@ const MqtDisplay = () => {
   // Determine if we should switch to hour-inclusive display when current time exceeds 120 minutes
   const currentTotalSeconds = Math.max(0, safeTime);
   const isLongDuration = Math.floor(currentTotalSeconds / 60) > 120;
+  const isVeryLongDuration = Math.floor(currentTotalSeconds / 60) >= 1440;
 
   // Dynamic font size based on actual digit count and screen size
   const getDynamicFontSize = () => {
@@ -604,8 +605,14 @@ const MqtDisplay = () => {
     const minuteDigits = String(minutesTotal).length || 1;
 
     let widthFactor;
+    const daysTotal = Math.floor(totalForDisplay / 86400);
+    const dayDigits = String(daysTotal).length || 1;
+    const dayLabelWidth = unitWidth * 3; // 'Day'
     if (timeFormat === 'mm') {
-      if (isLongDuration) {
+      if (isVeryLongDuration) {
+        // DDayHH + 'h'
+        widthFactor = charFactor * dayDigits + dayLabelWidth + (2 * charFactor) + unitFactor;
+      } else if (isLongDuration) {
         // HHMM (no 'm') but with 'h'
         widthFactor = charFactor * (hourDigits + 2) + unitFactor; // hours + 2 minute digits + 'h'
       } else if ((countUp ? time : Math.max(0, time)) < 60) {
@@ -616,7 +623,10 @@ const MqtDisplay = () => {
         widthFactor = charFactor * minuteDigits;
       }
     } else if (timeFormat === 'mm:ss') {
-      if (isLongDuration) {
+      if (isVeryLongDuration) {
+        // DDayHH + 'h'
+        widthFactor = charFactor * dayDigits + dayLabelWidth + (2 * charFactor) + unitFactor;
+      } else if (isLongDuration) {
         // HH:MM (no 'm') but with 'h' and colon
         widthFactor = charFactor * (hourDigits + 2) + unitFactor + colonFactor;
       } else {
@@ -816,6 +826,55 @@ const MqtDisplay = () => {
         break;
       }
 
+      // DAYS for DDayHH (when >24h)
+      case 'days': {
+        const days = Math.floor(totalSeconds / 86400);
+        const hoursWithinDay = Math.floor((totalSeconds % 86400) / 3600);
+        const minutesWithinHour = Math.floor((totalSeconds % 3600) / 60);
+        const dayStr = String(days);
+        const numDigits = dayStr.length || 1;
+        if (digitPosition >= numDigits) break;
+        const placeValue = Math.pow(10, numDigits - 1 - digitPosition);
+
+        let newDays = isIncrement ? days + placeValue : days - placeValue;
+        if (newDays < 0) newDays = 0;
+        let newTotalMinutes = newDays * 24 * 60 + hoursWithinDay * 60 + minutesWithinHour;
+        if (newTotalMinutes < 0) newTotalMinutes = 0;
+        if (newTotalMinutes > MAX_MINUTES) newTotalMinutes = MAX_MINUTES;
+        newDuration = newTotalMinutes * 60 + (totalSeconds % 60);
+        break;
+      }
+
+      // HOURS within day for DDayHH (two digits 00-23 with carry to days)
+      case 'hoursWithinDay': {
+        const days = Math.floor(totalSeconds / 86400);
+        const hoursInDay = Math.floor((totalSeconds % 86400) / 3600);
+        const minutesWithinHour = Math.floor((totalSeconds % 3600) / 60);
+        const placeValue = digitPosition === 0 ? 10 : 1; // tens or ones
+
+        let newHours = isIncrement ? hoursInDay + placeValue : hoursInDay - placeValue;
+        let newDays = days;
+
+        if (newHours >= 24) {
+          const carryDays = Math.floor(newHours / 24);
+          newHours = newHours % 24;
+          newDays = Math.max(0, newDays + carryDays);
+        } else if (newHours < 0) {
+          const borrowDays = -Math.ceil((-newHours) / 24);
+          newDays = Math.max(0, newDays + borrowDays);
+          newHours = newHours - borrowDays * 24; // bring back to 0..23
+          if (newDays === 0 && newHours < 0) {
+            newHours = 0;
+          }
+        }
+
+        let newTotalMinutes = newDays * 24 * 60 + newHours * 60 + minutesWithinHour;
+        if (newTotalMinutes < 0) newTotalMinutes = 0;
+        if (newTotalMinutes > MAX_MINUTES) newTotalMinutes = MAX_MINUTES;
+        newDuration = newTotalMinutes * 60 + (totalSeconds % 60);
+        break;
+      }
+
       default:
         // No action for unknown digit types
         break;
@@ -863,8 +922,133 @@ const MqtDisplay = () => {
       case 'mm': {
         const totalTime = countUp ? time : Math.max(0, time);
 
-        // If duration is configured as "long", switch to HHMM
-        if (isLongDuration) {
+        // If duration is configured as "long", switch to HHMM (or DDayHH when >24h)
+        if (isVeryLongDuration) {
+          const totalForDisplay = countUp ? Math.max(0, time) : Math.max(0, time);
+          const days = Math.floor(totalForDisplay / 86400);
+          const hoursInDay = Math.floor((totalForDisplay % 86400) / 3600);
+          const dayStr = String(days);
+          const hourStr = String(hoursInDay).padStart(2, '0');
+
+          const dayLabel = 'Day';
+          const dayLabelWidth = unitWidth * dayLabel.length;
+          const totalWidth = (dayStr.length * charWidth) + dayLabelWidth + (2 * charWidth) + unitWidth; // D + 'Day' + HH + 'h'
+          const startX = 120 - totalWidth / 2;
+
+          // Render day digits
+          for (let i = 0; i < dayStr.length; i++) {
+            const digitX = startX + (i * charWidth) + (charWidth / 2);
+            elements.push(
+              <g key={`days-digit-${i}-group`} onClick={(e) => e.stopPropagation()}>
+                <rect
+                  x={digitX - charWidth / 2}
+                  y={125 - fontSize / 2}
+                  width={charWidth}
+                  height={fontSize / 2}
+                  fill="transparent"
+                  className="timer-digit-clickable"
+                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('days', i, true) : undefined}
+                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                />
+                <rect
+                  x={digitX - charWidth / 2}
+                  y={125}
+                  width={charWidth}
+                  height={fontSize / 2}
+                  fill="transparent"
+                  className="timer-digit-clickable"
+                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('days', i, false) : undefined}
+                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                />
+                <text
+                  x={digitX}
+                  y={125}
+                  textAnchor="middle"
+                  fontFamily={font}
+                  fontSize={fontSize}
+                  fill={editingDigit?.startsWith(`days-${i}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
+                  pointerEvents="none"
+                >
+                  {dayStr[i]}
+                </text>
+              </g>
+            );
+          }
+
+          // 'Day' label
+          const dayX = startX + (dayStr.length * charWidth) + (dayLabelWidth / 2);
+          elements.push(
+            <text
+              key="unit-day"
+              x={dayX}
+              y={125}
+              textAnchor="middle"
+              fontFamily={font}
+              fontSize={fontSize}
+              fill={dynamicTextColor}
+            >
+              {dayLabel}
+            </text>
+          );
+
+          // Hours within the day (two digits)
+          const hoursStart = dayX + (dayLabelWidth / 2);
+          for (let i = 0; i < 2; i++) {
+            const digitX = hoursStart + (i * charWidth) + (charWidth / 2);
+            elements.push(
+              <g key={`hwd-digit-${i}-group`} onClick={(e) => e.stopPropagation()}>
+                <rect
+                  x={digitX - charWidth / 2}
+                  y={125 - fontSize / 2}
+                  width={charWidth}
+                  height={fontSize / 2}
+                  fill="transparent"
+                  className="timer-digit-clickable"
+                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('hoursWithinDay', i, true) : undefined}
+                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                />
+                <rect
+                  x={digitX - charWidth / 2}
+                  y={125}
+                  width={charWidth}
+                  height={fontSize / 2}
+                  fill="transparent"
+                  className="timer-digit-clickable"
+                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('hoursWithinDay', i, false) : undefined}
+                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                />
+                <text
+                  x={digitX}
+                  y={125}
+                  textAnchor="middle"
+                  fontFamily={font}
+                  fontSize={fontSize}
+                  fill={editingDigit?.startsWith(`hoursWithinDay-${i}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
+                  pointerEvents="none"
+                >
+                  {hourStr[i]}
+                </text>
+              </g>
+            );
+          }
+
+          // 'h' unit after hours
+          const hX2 = hoursStart + (2 * charWidth) + (unitWidth / 2);
+          elements.push(
+            <text
+              key="unit-h-dday"
+              x={hX2}
+              y={125}
+              textAnchor="middle"
+              fontFamily={font}
+              fontSize={fontSize}
+              fill={dynamicTextColor}
+            >
+              h
+            </text>
+          );
+
+        } else if (isLongDuration) {
           const totalForDisplay = countUp ? Math.max(0, time) : Math.max(0, time);
           const hours = Math.floor(totalForDisplay / 3600);
           const minutesInHour = Math.floor((totalForDisplay % 3600) / 60);
@@ -1123,7 +1307,132 @@ const MqtDisplay = () => {
 
       // MM:SS FORMAT: Unlimited minutes + traditional seconds (0-59)
       case 'mm:ss': {
-        if (isLongDuration) {
+        if (isVeryLongDuration) {
+          const totalForDisplay = countUp ? Math.max(0, time) : Math.max(0, time);
+          const days = Math.floor(totalForDisplay / 86400);
+          const hoursInDay = Math.floor((totalForDisplay % 86400) / 3600);
+          const dayStr = String(days);
+          const hourStr = String(hoursInDay).padStart(2, '0');
+
+          const dayLabel = 'Day';
+          const dayLabelWidth = unitWidth * dayLabel.length;
+          const totalWidth = (dayStr.length * charWidth) + dayLabelWidth + (2 * charWidth) + unitWidth;
+          const startX = 120 - totalWidth / 2;
+
+          // Days
+          for (let i = 0; i < dayStr.length; i++) {
+            const digitX = startX + (i * charWidth) + (charWidth / 2);
+            elements.push(
+              <g key={`days-digit-${i}-group`} onClick={(e) => e.stopPropagation()}>
+                <rect
+                  x={digitX - charWidth / 2}
+                  y={125 - fontSize / 2}
+                  width={charWidth}
+                  height={fontSize / 2}
+                  fill="transparent"
+                  className="timer-digit-clickable"
+                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('days', i, true) : undefined}
+                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                />
+                <rect
+                  x={digitX - charWidth / 2}
+                  y={125}
+                  width={charWidth}
+                  height={fontSize / 2}
+                  fill="transparent"
+                  className="timer-digit-clickable"
+                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('days', i, false) : undefined}
+                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                />
+                <text
+                  x={digitX}
+                  y={125}
+                  textAnchor="middle"
+                  fontFamily={font}
+                  fontSize={fontSize}
+                  fill={editingDigit?.startsWith(`days-${i}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
+                  pointerEvents="none"
+                >
+                  {dayStr[i]}
+                </text>
+              </g>
+            );
+          }
+
+          // 'Day'
+          const dayX = startX + (dayStr.length * charWidth) + (dayLabelWidth / 2);
+          elements.push(
+            <text
+              key="unit-day"
+              x={dayX}
+              y={125}
+              textAnchor="middle"
+              fontFamily={font}
+              fontSize={fontSize}
+              fill={dynamicTextColor}
+            >
+              Day
+            </text>
+          );
+
+          // Hours within day (two digits)
+          const hoursStart = dayX + (dayLabelWidth / 2);
+          for (let i = 0; i < 2; i++) {
+            const digitX = hoursStart + (i * charWidth) + (charWidth / 2);
+            elements.push(
+              <g key={`hwd-digit-${i}-group`} onClick={(e) => e.stopPropagation()}>
+                <rect
+                  x={digitX - charWidth / 2}
+                  y={125 - fontSize / 2}
+                  width={charWidth}
+                  height={fontSize / 2}
+                  fill="transparent"
+                  className="timer-digit-clickable"
+                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('hoursWithinDay', i, true) : undefined}
+                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                />
+                <rect
+                  x={digitX - charWidth / 2}
+                  y={125}
+                  width={charWidth}
+                  height={fontSize / 2}
+                  fill="transparent"
+                  className="timer-digit-clickable"
+                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('hoursWithinDay', i, false) : undefined}
+                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                />
+                <text
+                  x={digitX}
+                  y={125}
+                  textAnchor="middle"
+                  fontFamily={font}
+                  fontSize={fontSize}
+                  fill={editingDigit?.startsWith(`hoursWithinDay-${i}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
+                  pointerEvents="none"
+                >
+                  {hourStr[i]}
+                </text>
+              </g>
+            );
+          }
+
+          // 'h'
+          const hX2 = hoursStart + (2 * charWidth) + (unitWidth / 2);
+          elements.push(
+            <text
+              key="unit-h-dday"
+              x={hX2}
+              y={125}
+              textAnchor="middle"
+              fontFamily={font}
+              fontSize={fontSize}
+              fill={dynamicTextColor}
+            >
+              h
+            </text>
+          );
+
+        } else if (isLongDuration) {
           // Switch to HH:MM when total duration exceeds threshold
           const totalForDisplay = countUp ? Math.max(0, time) : Math.max(0, time);
           const hours = Math.floor(totalForDisplay / 3600);
