@@ -609,10 +609,11 @@ const MqtDisplay = () => {
     const dayDigits = String(daysTotal).length || 1;
     const dayLabelScale = 0.3; // render 'Day' at 30% of main font size
     const dayLabelWidth = unitFactor * 3 * dayLabelScale; // approximate width for 'Day' at scaled size
+    const gapFactor = charFactor * 0.2; // small spacing between day digits and 'Day'
     if (timeFormat === 'mm') {
       if (isVeryLongDuration) {
         // DDayHH + 'h'
-        widthFactor = charFactor * dayDigits + dayLabelWidth + (2 * charFactor) + unitFactor;
+        widthFactor = charFactor * dayDigits + gapFactor + dayLabelWidth + (2 * charFactor) + unitFactor;
       } else if (isLongDuration) {
         // HHMM (no 'm') but with 'h'
         widthFactor = charFactor * (hourDigits + 2) + unitFactor; // hours + 2 minute digits + 'h'
@@ -626,7 +627,7 @@ const MqtDisplay = () => {
     } else if (timeFormat === 'mm:ss') {
       if (isVeryLongDuration) {
         // DDayHH + 'h'
-        widthFactor = charFactor * dayDigits + dayLabelWidth + (2 * charFactor) + unitFactor;
+        widthFactor = charFactor * dayDigits + gapFactor + dayLabelWidth + (2 * charFactor) + unitFactor;
       } else if (isLongDuration) {
         // HH:MM (no 'm') but with 'h' and colon
         widthFactor = charFactor * (hourDigits + 2) + unitFactor + colonFactor;
@@ -934,7 +935,8 @@ const MqtDisplay = () => {
           const dayLabel = 'Day';
           const dayLabelScale = 0.3;
           const dayLabelWidth = unitWidth * dayLabel.length * dayLabelScale;
-          const totalWidth = (dayStr.length * charWidth) + dayLabelWidth + (2 * charWidth) + unitWidth; // D + 'Day' + HH + 'h'
+          const gapWidth = charWidth * 0.2; // small gap between day digits and 'Day'
+          const totalWidth = (dayStr.length * charWidth) + gapWidth + dayLabelWidth + (2 * charWidth) + unitWidth; // D + gap + 'Day' + HH + 'h'
           const startX = 120 - totalWidth / 2;
 
           // Render day digits
@@ -978,7 +980,7 @@ const MqtDisplay = () => {
           }
 
           // 'Day' label
-          const dayX = startX + (dayStr.length * charWidth) + (dayLabelWidth / 2);
+          const dayX = startX + (dayStr.length * charWidth) + gapWidth + (dayLabelWidth / 2);
           elements.push(
             <text
               key="unit-day"
@@ -1319,7 +1321,8 @@ const MqtDisplay = () => {
           const dayLabel = 'Day';
           const dayLabelScale = 0.3;
           const dayLabelWidth = unitWidth * dayLabel.length * dayLabelScale;
-          const totalWidth = (dayStr.length * charWidth) + dayLabelWidth + (2 * charWidth) + unitWidth;
+          const gapWidth = charWidth * 0.2; // small gap between day digits and 'Day'
+          const totalWidth = (dayStr.length * charWidth) + gapWidth + dayLabelWidth + (2 * charWidth) + unitWidth;
           const startX = 120 - totalWidth / 2;
 
           // Days
@@ -1363,7 +1366,7 @@ const MqtDisplay = () => {
           }
 
           // 'Day'
-          const dayX = startX + (dayStr.length * charWidth) + (dayLabelWidth / 2);
+          const dayX = startX + (dayStr.length * charWidth) + gapWidth + (dayLabelWidth / 2);
           elements.push(
             <text
               key="unit-day"
