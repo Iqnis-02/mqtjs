@@ -581,12 +581,13 @@ const MqtDisplay = () => {
       baseSize = 60; // Original size for short text
     }
 
-    const baseComputed = Math.round(baseSize * scaleFactor * 1.3);
+    const scaleBoost = hideClockBackground ? 1.5 : 1.3;
+    const baseComputed = Math.round(baseSize * scaleFactor * scaleBoost);
 
     // Constrain font size to fit within the circle and background
     const baseStrokeWidth = circleStyle === 'fat' ? 16 : circleStyle === 'bw' ? 2 : 8;
     const strokeW = getResponsiveStrokeWidth(baseStrokeWidth);
-    const padding = 10 + (hideClockBackground ? 0 : 4);
+    const padding = hideClockBackground ? 6 : 14;
     const innerDiameter = 2 * (radius - strokeW / 2 - padding);
     const heightMax = innerDiameter * 0.9;
 
