@@ -152,7 +152,7 @@ const MqtSetting = () => {
       <Slider
         size="small"
         min={1}
-        max={limitBreak ? 999 : 120}
+        max={limitBreak ? 43200 : 120}
         value={duration}
         onChange={(e, v) => setDuration(v)}
       />
