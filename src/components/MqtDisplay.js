@@ -1509,8 +1509,24 @@ const MqtDisplay = () => {
     return markings;
   };
 
+  const handleDisplayClick = (e) => {
+    const svgElement = e.currentTarget.querySelector('.circle-svg');
+    if (!svgElement) { setIsRunning(prev => !prev); return; }
+    const svgRect = svgElement.getBoundingClientRect();
+    const centerX = svgRect.left + svgRect.width / 2;
+    const centerY = svgRect.top + svgRect.height / 2;
+    const dx = e.clientX - centerX;
+    const dy = e.clientY - centerY;
+    const distance = Math.hypot(dx, dy);
+    const scale = svgRect.width / 240; // viewBox width
+    const scaledRadius = radius * scale;
+    if (distance > scaledRadius) {
+      setIsRunning(prev => !prev);
+    }
+  };
+
   return (
-    <div className={`mqt-display fullscreen theme-${theme}`} style={{ cursor: 'none' }} onClick={() => setIsRunning(!isRunning)}>
+    <div className={`mqt-display fullscreen theme-${theme}`} style={{ cursor: 'none' }} onClick={handleDisplayClick}>
       <svg className="circle-svg" viewBox="0 0 240 240">
         {/* Clock face background circle - conditionally rendered */}
         {!hideClockBackground && (
