@@ -424,7 +424,7 @@ const MqtDisplay = () => {
   let percent;
 
   // Auto-switch to second progress when ≤10 seconds remain (regardless of setting)
-  const timeRemaining = countUp ? safeDuration - safeTime : safeTime;
+  const timeRemaining = countUp ? safeDuration - safeSmoothTime : safeSmoothTime;
   const useSecondProgress = timeRemaining <= 10;
 
   if (useSecondProgress) {
